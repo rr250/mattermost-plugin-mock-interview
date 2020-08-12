@@ -56,7 +56,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 						SubType:     "text",
 					},
 					{
-						DisplayName: "Specify a Date (format dd/mm/yyyy)",
+						DisplayName: "Specify a Date (format dd/mm/yy)",
 						Name:        "date",
 						Type:        "text",
 						SubType:     "text",
