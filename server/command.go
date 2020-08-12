@@ -62,7 +62,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 						SubType:     "text",
 					},
 					{
-						DisplayName: "Specify a time (format hh:mm)",
+						DisplayName: "Specify a time (format hh:mm, Timezone: IST)",
 						Name:        "time",
 						Type:        "text",
 						SubType:     "text",
