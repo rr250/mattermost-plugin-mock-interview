@@ -10,7 +10,7 @@ const (
 )
 
 const (
-	botUserName    = "movkinterviewbot"
+	botUserName    = "mockinterviewbot"
 	botDisplayName = "Mock Interview Bot"
 )
 

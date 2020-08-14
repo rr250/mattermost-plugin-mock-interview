@@ -15,7 +15,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 		dialogRequest := model.OpenDialogRequest{
 			TriggerId: args.TriggerId,
-			URL:       fmt.Sprintf("/plugins/%s/create", manifest.ID),
+			URL:       fmt.Sprintf("/plugins/%s/createmockinterview", manifest.ID),
 			Dialog: model.Dialog{
 				Title:       "Request a Mock Interview",
 				CallbackId:  model.NewId(),
@@ -23,7 +23,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 				Elements: []model.DialogElement{
 					{
 						DisplayName: "Select Mock Interview Type",
-						Name:        "type",
+						Name:        "interviewType",
 						Type:        "select",
 						SubType:     "select",
 						Options: []*model.PostActionOptions{
@@ -44,8 +44,8 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 								Value: "LLD",
 							},
 							{
-								Text:  "Language Specific (Please Specify the language in the language field",
-								Value: "Language",
+								Text:  "Tech Stack (Please specify the tech stack in the language field)",
+								Value: "Tech Stack",
 							},
 						},
 					},
