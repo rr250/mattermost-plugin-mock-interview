@@ -31,6 +31,7 @@ func (p *Plugin) OnActivate() error {
 	p.botUserID = botUserID
 	p.router = p.InitAPI()
 	p.cron = p.InitCRON()
+	p.cron.Start()
 	return nil
 }
 
