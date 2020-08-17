@@ -29,6 +29,8 @@ func (p *Plugin) CreateMockInterview(w http.ResponseWriter, req *http.Request) {
 	user, err := p.API.GetUser(request.UserId)
 	if err != nil {
 		p.API.LogError("Unable to get User", err)
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
+		return
 	}
 
 	mockInterview := MockInterview{
@@ -37,9 +39,8 @@ func (p *Plugin) CreateMockInterview(w http.ResponseWriter, req *http.Request) {
 		CreatedByID:   user.Id,
 		CreatedAt:     time.Now(),
 		InterviewType: request.Submission["interviewType"].(string),
+		Rating:        request.Submission["rating"].(string),
 		Language:      request.Submission["language"].(string),
-		AcceptedBy:    "na",
-		AcceptedByID:  "na",
 		IsAccepted:    false,
 		IsExpired:     false,
 	}
@@ -48,7 +49,12 @@ func (p *Plugin) CreateMockInterview(w http.ResponseWriter, req *http.Request) {
 	t1 := request.Submission["time"].(string)
 	value := strings.Trim(date, " ") + ", " + strings.Trim(t1, " ") + ", +0530"
 	layout := "02/01/06, 15:04, -0700"
-	t, _ := time.Parse(layout, value)
+	t, err2 := time.Parse(layout, value)
+	if err2 != nil || t.Before(time.Now()) {
+		p.API.LogError("Not a valid time", err2)
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Not a valid time %s", err2))
+		return
+	}
 	mockInterview.ScheduledAt = t
 	postModel := &model.Post{
 		UserId:    p.botUserID,
@@ -56,7 +62,7 @@ func (p *Plugin) CreateMockInterview(w http.ResponseWriter, req *http.Request) {
 		Props: model.StringInterface{
 			"attachments": []*model.SlackAttachment{
 				{
-					Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nLanguage: " + mockInterview.Language,
+					Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nRating: " + mockInterview.Rating + "\nLanguage: " + mockInterview.Language,
 					Actions: []*model.PostAction{
 						{
 							Integration: &model.PostActionIntegration{
@@ -78,12 +84,16 @@ func (p *Plugin) CreateMockInterview(w http.ResponseWriter, req *http.Request) {
 	post, err := p.API.CreatePost(postModel)
 	if err != nil {
 		p.API.LogError("Unable to create post", err)
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
+		return
 	}
 	mockInterview.PostID = post.Id
 	err1 := p.AddMockInterview(mockInterview)
 	if err1 != nil {
 		p.API.LogError("", err1.(string))
 		p.API.DeletePost(mockInterview.PostID)
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("%s", err1.(string)))
+		return
 	}
 }
 
@@ -93,47 +103,67 @@ func (p *Plugin) AcceptRequest(w http.ResponseWriter, req *http.Request) {
 	user, err := p.API.GetUser(request.UserId)
 	if err != nil {
 		p.API.LogError("Unable to get User", err)
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
+		return
 	}
 	mockInterviewID := request.Context["mockinterviewid"].(string)
 	mockInterview, err1 := p.GetMockInterview(mockInterviewID)
 	if err1 != nil {
 		p.API.LogError("", err1.(string))
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("%s", err1.(string)))
+		return
 	}
-	mockInterview.AcceptedBy = user.GetFullName()
-	mockInterview.AcceptedByID = user.Id
-	mockInterview.IsAccepted = true
-	channel, err := p.API.GetDirectChannel(mockInterview.AcceptedByID, mockInterview.CreatedByID)
-	if err != nil {
-		p.API.LogError("Unable to get Channel", err)
-	}
-	postModel := &model.Post{
-		UserId:    p.botUserID,
-		ChannelId: channel.Id,
-		Message:   mockInterview.AcceptedBy + " accepted your request of mock interview. Here are the details:-",
-		Props: model.StringInterface{
-			"attachments": []*model.SlackAttachment{
-				{
-					Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nLanguage: " + mockInterview.Language + "\nAccepted By: " + mockInterview.AcceptedBy,
+	if mockInterview.ScheduledAt.Before(time.Now()) || mockInterview.IsAccepted {
+		p.SendEphermeral(request.UserId, request.ChannelId, "Request Expired")
+	} else {
+		mockInterview.AcceptedBy = user.GetFullName()
+		mockInterview.AcceptedByID = user.Id
+		mockInterview.IsAccepted = true
+		err1 = p.UpdateMockInterview(mockInterview)
+		if err1 != nil {
+			p.API.LogError("", err1)
+			p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("%s", err1))
+			return
+		}
+		channel, err := p.API.GetDirectChannel(mockInterview.AcceptedByID, mockInterview.CreatedByID)
+		if err != nil {
+			p.API.LogError("Unable to get Channel", err)
+			p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
+			return
+		}
+		postModel := &model.Post{
+			UserId:    p.botUserID,
+			ChannelId: channel.Id,
+			Message:   mockInterview.AcceptedBy + " accepted your request of mock interview. Here are the details:-",
+			Props: model.StringInterface{
+				"attachments": []*model.SlackAttachment{
+					{
+						Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nRating: " + mockInterview.Rating + "\nLanguage: " + mockInterview.Language + "\nAccepted By: " + mockInterview.AcceptedBy,
+					},
 				},
 			},
-		},
-	}
+		}
 
-	p.API.CreatePost(postModel)
-	post, err := p.API.GetPost(request.PostId)
-	if err != nil {
-		p.API.LogError("Unable to get Post", err)
-	}
-	post.Props = model.StringInterface{
-		"attachments": []*model.SlackAttachment{
-			{
-				Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nLanguage: " + mockInterview.Language + "\nAccepted By: " + mockInterview.AcceptedBy,
+		p.API.CreatePost(postModel)
+		post, err := p.API.GetPost(request.PostId)
+		if err != nil {
+			p.API.LogError("Unable to get Post", err)
+			p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
+			return
+		}
+		post.Props = model.StringInterface{
+			"attachments": []*model.SlackAttachment{
+				{
+					Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nRating: " + mockInterview.Rating + "\nLanguage: " + mockInterview.Language + "\nAccepted By: " + mockInterview.AcceptedBy,
+				},
 			},
-		},
-	}
-	_, err = p.API.UpdatePost(post)
-	if err != nil {
-		p.API.LogError("Unable to update Post", err)
+		}
+		_, err = p.API.UpdatePost(post)
+		if err != nil {
+			p.API.LogError("Unable to update Post", err)
+			p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
+			return
+		}
 	}
 }
 
@@ -141,4 +171,13 @@ func writePostActionIntegrationResponseOk(w http.ResponseWriter, response *model
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(response.ToJson())
+}
+
+func (p *Plugin) SendEphermeral(userID string, channelID string, message string) {
+	postModel := &model.Post{
+		UserId:    userID,
+		ChannelId: channelID,
+		Message:   message,
+	}
+	p.API.SendEphemeralPost(userID, postModel)
 }

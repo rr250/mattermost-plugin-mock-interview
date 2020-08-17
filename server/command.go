@@ -50,6 +50,30 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 						},
 					},
 					{
+						DisplayName: "Rate your coding skills",
+						Name:        "rating",
+						Type:        "select",
+						SubType:     "select",
+						Options: []*model.PostActionOptions{
+							{
+								Text:  "Beginner",
+								Value: "Beginner",
+							},
+							{
+								Text:  "Intermediate",
+								Value: "Intermediate",
+							},
+							{
+								Text:  "Expert",
+								Value: "Expert",
+							},
+							{
+								Text:  "Code Ninja",
+								Value: "Code Ninja",
+							},
+						},
+					},
+					{
 						DisplayName: "Language",
 						Name:        "language",
 						Type:        "text",
@@ -72,20 +96,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 		if pErr := p.API.OpenInteractiveDialog(dialogRequest); pErr != nil {
 			p.API.LogError("Failed opening interactive dialog " + pErr.Error())
-			postModel := &model.Post{
-				UserId:    args.UserId,
-				ChannelId: args.ChannelId,
-				Message:   fmt.Sprintf("Failed opening interactive dialog " + pErr.Error()),
-			}
-			p.API.SendEphemeralPost(args.UserId, postModel)
+			p.SendEphermeral(args.UserId, args.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", pErr))
 		}
 	} else if strings.Trim(command, " ") == "/"+trigger+" help" {
-		postModel := &model.Post{
-			UserId:    args.UserId,
-			ChannelId: args.ChannelId,
-			Message:   "* `/mockinterview` - opens up an [interactive dialog] to post a mock interview request",
-		}
-		p.API.SendEphemeralPost(args.UserId, postModel)
+		p.SendEphermeral(args.UserId, args.ChannelId, "* `/mockinterview` - opens up an [interactive dialog] to post a mock interview request")
 	}
 
 	return &model.CommandResponse{}, nil
