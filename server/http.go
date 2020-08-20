@@ -38,16 +38,17 @@ func (p *Plugin) CreateMockInterview(w http.ResponseWriter, req *http.Request) {
 		CreatedBy:     user.GetFullName(),
 		CreatedByID:   user.Id,
 		CreatedAt:     time.Now(),
-		InterviewType: request.Submission["interviewType"].(string),
-		Rating:        request.Submission["rating"].(string),
-		Language:      request.Submission["language"].(string),
+		InterviewType: fmt.Sprintf("%v", request.Submission["interviewType"]),
+		Rating:        fmt.Sprintf("%v", request.Submission["rating"]),
+		Language:      fmt.Sprintf("%v", request.Submission["language"]),
 		IsAccepted:    false,
 		IsExpired:     false,
 	}
 
-	date := request.Submission["date"].(string)
-	t1 := request.Submission["time"].(string)
+	date := fmt.Sprintf("%v", request.Submission["date"])
+	t1 := fmt.Sprintf("%v", request.Submission["time"])
 	value := strings.Trim(date, " ") + ", " + strings.Trim(t1, " ") + ", +0530"
+	p.API.LogInfo(value)
 	layout := "02/01/06, 15:04, -0700"
 	t, err2 := time.Parse(layout, value)
 	if err2 != nil || t.Before(time.Now()) {
@@ -55,10 +56,11 @@ func (p *Plugin) CreateMockInterview(w http.ResponseWriter, req *http.Request) {
 		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Not a valid time %s", err2))
 		return
 	}
+	configuration := p.getConfiguration()
 	mockInterview.ScheduledAt = t
 	postModel := &model.Post{
 		UserId:    p.botUserID,
-		ChannelId: request.ChannelId,
+		ChannelId: configuration.ChannelID,
 		Props: model.StringInterface{
 			"attachments": []*model.SlackAttachment{
 				{
@@ -134,11 +136,11 @@ func (p *Plugin) AcceptRequest(w http.ResponseWriter, req *http.Request) {
 		postModel := &model.Post{
 			UserId:    p.botUserID,
 			ChannelId: channel.Id,
-			Message:   mockInterview.AcceptedBy + " accepted your request of mock interview. Here are the details:-",
+			Message:   "Mock Interview has been scheduled between " + mockInterview.CreatedBy + " and " + mockInterview.AcceptedBy + ".\nPlease follow the guidelines: https://docs.google.com/spreadsheets/d/1HAYsoH-wJoDZ3Sihdlb5HTBxngB7zNuDTci7-qfZbX0/edit?usp=sharing",
 			Props: model.StringInterface{
 				"attachments": []*model.SlackAttachment{
 					{
-						Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nRating: " + mockInterview.Rating + "\nLanguage: " + mockInterview.Language + "\nAccepted By: " + mockInterview.AcceptedBy,
+						Text: "Mock Interview Scheduled At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nRating: " + mockInterview.Rating + "\nLanguage: " + mockInterview.Language + "\nAccepted By: " + mockInterview.AcceptedBy,
 					},
 				},
 			},

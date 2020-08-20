@@ -50,7 +50,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 						},
 					},
 					{
-						DisplayName: "Rate your coding skills",
+						DisplayName: "How will you rate yourself?",
 						Name:        "rating",
 						Type:        "select",
 						SubType:     "select",
@@ -67,10 +67,6 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 								Text:  "Expert",
 								Value: "Expert",
 							},
-							{
-								Text:  "Code Ninja",
-								Value: "Code Ninja",
-							},
 						},
 					},
 					{
@@ -78,6 +74,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 						Name:        "language",
 						Type:        "text",
 						SubType:     "text",
+						Optional:    true,
 					},
 					{
 						DisplayName: "Specify a Date (format dd/mm/yy)",
