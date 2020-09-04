@@ -117,6 +117,8 @@ func (p *Plugin) AcceptRequest(w http.ResponseWriter, req *http.Request) {
 	}
 	if mockInterview.ScheduledAt.Before(time.Now()) || mockInterview.IsAccepted {
 		p.SendEphermeral(request.UserId, request.ChannelId, "Request Expired")
+	} else if mockInterview.CreatedByID == user.Id {
+		p.SendEphermeral(request.UserId, request.ChannelId, "Can't accept your own request")
 	} else {
 		mockInterview.AcceptedBy = user.GetFullName()
 		mockInterview.AcceptedByID = user.Id

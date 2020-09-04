@@ -26,6 +26,12 @@ type MockInterviewSummary struct {
 	MockInterviewID string
 }
 
+type MockInterviewPerUser struct {
+	MockInterviewID      string
+	MockInterviewDetails string
+	CreatedAt            time.Time
+}
+
 func (p *Plugin) AddMockInterview(mockInterview MockInterview) interface{} {
 	mockInterviewJSON, err := json.Marshal(mockInterview)
 	if err != nil {
@@ -64,6 +70,36 @@ func (p *Plugin) AddMockInterview(mockInterview MockInterview) interface{} {
 	if err3 != nil {
 		p.API.LogError("failed KVSet", err3, mockInterviewsJSON)
 		return fmt.Sprintf("failed KVSet %s", err3)
+	}
+
+	bytes1, err4 := p.API.KVGet("mockinterviewperuser-" + mockInterview.CreatedByID)
+	if err4 != nil {
+		p.API.LogError("failed KVGet %s", err4)
+		return fmt.Sprintf("failed KVGet %s", err4)
+	}
+	mockInterviewPerUser := MockInterviewPerUser{
+		MockInterviewID:      mockInterview.ID,
+		MockInterviewDetails: mockInterview.InterviewType + "-" + mockInterview.CreatedAt.Format(time.RFC822),
+		CreatedAt:            mockInterview.CreatedAt,
+	}
+	var mockInterviewPerUserList []MockInterviewPerUser
+	if bytes1 != nil {
+		if err = json.Unmarshal(bytes, &mockInterviewPerUserList); err != nil {
+			return fmt.Sprintf("failed to unmarshal  %s", err)
+		}
+		mockInterviewPerUserList = append(mockInterviewPerUserList, mockInterviewPerUser)
+	} else {
+		mockInterviewPerUserList = []MockInterviewPerUser{mockInterviewPerUser}
+	}
+	mockInterviewPerUserListJSON, err := json.Marshal(mockInterviewPerUserList)
+	if err != nil {
+		p.API.LogError("failed to marshal mockInterviewPerUserList  %s", mockInterviewPerUserList)
+		return fmt.Sprintf("failed to marshal mockInterviewPerUserList  %s", mockInterviewPerUserList)
+	}
+	err5 := p.API.KVSet("mockinterviewperuser-"+mockInterview.CreatedByID, mockInterviewPerUserListJSON)
+	if err5 != nil {
+		p.API.LogError("failed KVSet", err5, mockInterviewPerUserListJSON)
+		return fmt.Sprintf("failed KVSet %s", err5)
 	}
 	return nil
 }
@@ -114,4 +150,21 @@ func (p *Plugin) UpdateMockInterview(mockInterview MockInterview) interface{} {
 		return fmt.Sprintf("failed KVSet %s", err1)
 	}
 	return nil
+}
+
+func (p *Plugin) GetMockInterviewPerUserList(userID string) ([]MockInterviewPerUser, interface{}) {
+	var mockInterviewPerUserList []MockInterviewPerUser
+	bytes, err := p.API.KVGet("mockinterviewperuser-" + userID)
+	if err != nil {
+		p.API.LogError("failed KVGet %s", err)
+		return mockInterviewPerUserList, fmt.Sprintf("failed to unmarshal %s", err)
+	}
+	if bytes != nil {
+		if err3 := json.Unmarshal(bytes, &mockInterviewPerUserList); err3 != nil {
+			return mockInterviewPerUserList, fmt.Sprintf("failed to unmarshal %s", err3)
+		}
+	} else {
+		return mockInterviewPerUserList, "No MockInterview found"
+	}
+	return mockInterviewPerUserList, nil
 }

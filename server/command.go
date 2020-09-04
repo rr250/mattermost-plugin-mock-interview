@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
@@ -77,16 +78,18 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 						Optional:    true,
 					},
 					{
-						DisplayName: "Specify a Date (format dd/mm/yy)",
+						DisplayName: "Specify a Date",
 						Name:        "date",
 						Type:        "text",
 						SubType:     "text",
+						Placeholder: "dd/mm/yy",
 					},
 					{
-						DisplayName: "Specify a time (format hh:mm, Timezone: IST (+5:30))",
+						DisplayName: "Specify a time ((24hrs format), (Timezone: IST +5:30))",
 						Name:        "time",
 						Type:        "text",
 						SubType:     "text",
+						Placeholder: "HH:mm",
 					},
 				},
 			},
@@ -94,6 +97,57 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		if pErr := p.API.OpenInteractiveDialog(dialogRequest); pErr != nil {
 			p.API.LogError("Failed opening interactive dialog " + pErr.Error())
 			p.SendEphermeral(args.UserId, args.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", pErr))
+		}
+	} else if strings.Trim(command, " ") == "/"+trigger+" list" {
+		mockInterviewPerUserList, err := p.GetMockInterviewPerUserList(args.UserId)
+		if err == nil {
+			postModel := &model.Post{
+				UserId:    args.UserId,
+				ChannelId: args.ChannelId,
+				Message:   "Mock Interviews :-",
+				Props: model.StringInterface{
+					"attachments": []*model.SlackAttachment{},
+				},
+			}
+			for _, mockInterview := range mockInterviewPerUserList {
+				attachment := &model.SlackAttachment{
+					Text: "Mock Interview: " + mockInterview.MockInterviewDetails + "\nCreatedAt: " + mockInterview.CreatedAt.Format(time.ANSIC),
+					Actions: []*model.PostAction{
+						{
+							Integration: &model.PostActionIntegration{
+								URL: fmt.Sprintf("/plugins/%s/cancelmockinterviewbyid", manifest.ID),
+								Context: model.StringInterface{
+									"action":    "cancelmockinterviewbyid",
+									"jobpostid": mockInterview.MockInterviewID,
+								},
+							},
+							Type: model.POST_ACTION_TYPE_BUTTON,
+							Name: "Cancel",
+						},
+						{
+							Integration: &model.PostActionIntegration{
+								URL: fmt.Sprintf("/plugins/%s/editmockinterviewbyid", manifest.ID),
+								Context: model.StringInterface{
+									"action":    "editmockinterviewbyid",
+									"jobpostid": mockInterview.MockInterviewID,
+								},
+							},
+							Type: model.POST_ACTION_TYPE_BUTTON,
+							Name: "Edit",
+						},
+					},
+				}
+				postModel.Props["attachments"] = append(postModel.Props["attachments"].([]*model.SlackAttachment), attachment)
+			}
+			p.API.SendEphemeralPost(args.UserId, postModel)
+
+		} else {
+			postModel := &model.Post{
+				UserId:    args.UserId,
+				ChannelId: args.ChannelId,
+				Message:   err.(string),
+			}
+			p.API.SendEphemeralPost(args.UserId, postModel)
 		}
 	} else if strings.Trim(command, " ") == "/"+trigger+" help" {
 		p.SendEphermeral(args.UserId, args.ChannelId, "* `/mockinterview` - opens up an [interactive dialog] to post a mock interview request")
