@@ -117,7 +117,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 					continue
 				}
 				attachment := &model.SlackAttachment{
-					Text: "Mock Interview: " + mockInterview1.InterviewType + "\nCreatedAt: " + mockInterview1.CreatedAt.Format(time.ANSIC) + "\nIs Cancelled: " + fmt.Sprintf("%t", mockInterview1.IsCancelled) + "\nIs Expired: " + fmt.Sprintf("%t", mockInterview1.IsExpired),
+					Text: "Mock Interview: " + mockInterview1.InterviewType + "\nCreatedAt: " + mockInterview1.CreatedAt.Format(time.ANSIC) + "\nIs Cancelled: " + fmt.Sprintf("%t", mockInterview1.IsCancelled) + "\nIs Expired: " + fmt.Sprintf("%t", mockInterview1.IsExpired) + "\nIs Accepted: " + fmt.Sprintf("%t", mockInterview1.IsAccepted),
 					Actions: []*model.PostAction{
 						{
 							Integration: &model.PostActionIntegration{
