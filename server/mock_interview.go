@@ -20,6 +20,7 @@ type MockInterview struct {
 	PostID        string
 	IsAccepted    bool
 	IsExpired     bool
+	IsCancelled   bool
 }
 
 type MockInterviewSummary struct {
@@ -27,9 +28,7 @@ type MockInterviewSummary struct {
 }
 
 type MockInterviewPerUser struct {
-	MockInterviewID      string
-	MockInterviewDetails string
-	CreatedAt            time.Time
+	MockInterviewID string
 }
 
 func (p *Plugin) AddMockInterview(mockInterview MockInterview) interface{} {
@@ -78,9 +77,7 @@ func (p *Plugin) AddMockInterview(mockInterview MockInterview) interface{} {
 		return fmt.Sprintf("failed KVGet %s", err4)
 	}
 	mockInterviewPerUser := MockInterviewPerUser{
-		MockInterviewID:      mockInterview.ID,
-		MockInterviewDetails: mockInterview.InterviewType + "-" + mockInterview.CreatedAt.Format(time.RFC822),
-		CreatedAt:            mockInterview.CreatedAt,
+		MockInterviewID: mockInterview.ID,
 	}
 	var mockInterviewPerUserList []MockInterviewPerUser
 	if bytes1 != nil {

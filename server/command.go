@@ -110,26 +110,32 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 				},
 			}
 			for _, mockInterview := range mockInterviewPerUserList {
+				mockInterview1, err1 := p.GetMockInterview(mockInterview.MockInterviewID)
+				if err1 != nil {
+					p.API.LogError("", err1.(string))
+					p.SendEphermeral(args.UserId, args.ChannelId, fmt.Sprintf("%s", err1.(string)))
+					continue
+				}
 				attachment := &model.SlackAttachment{
-					Text: "Mock Interview: " + mockInterview.MockInterviewDetails + "\nCreatedAt: " + mockInterview.CreatedAt.Format(time.ANSIC),
+					Text: "Mock Interview: " + mockInterview1.InterviewType + "\nCreatedAt: " + mockInterview1.CreatedAt.Format(time.ANSIC) + "\nIs Cancelled: " + fmt.Sprintf("%t", mockInterview1.IsCancelled) + "\nIs Expired: " + fmt.Sprintf("%t", mockInterview1.IsExpired),
 					Actions: []*model.PostAction{
 						{
 							Integration: &model.PostActionIntegration{
 								URL: fmt.Sprintf("/plugins/%s/cancelmockinterviewbyid", manifest.ID),
 								Context: model.StringInterface{
-									"action":    "cancelmockinterviewbyid",
-									"jobpostid": mockInterview.MockInterviewID,
+									"action":          "cancelmockinterviewbyid",
+									"mockinterviewid": mockInterview.MockInterviewID,
 								},
 							},
 							Type: model.POST_ACTION_TYPE_BUTTON,
-							Name: "Cancel",
+							Name: "Cancel/Uncancel Request",
 						},
 						{
 							Integration: &model.PostActionIntegration{
 								URL: fmt.Sprintf("/plugins/%s/editmockinterviewbyid", manifest.ID),
 								Context: model.StringInterface{
-									"action":    "editmockinterviewbyid",
-									"jobpostid": mockInterview.MockInterviewID,
+									"action":          "editmockinterviewbyid",
+									"mockinterviewid": mockInterview.MockInterviewID,
 								},
 							},
 							Type: model.POST_ACTION_TYPE_BUTTON,
@@ -150,7 +156,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			p.API.SendEphemeralPost(args.UserId, postModel)
 		}
 	} else if strings.Trim(command, " ") == "/"+trigger+" help" {
-		p.SendEphermeral(args.UserId, args.ChannelId, "* `/mockinterview` - opens up an [interactive dialog] to post a mock interview request")
+		p.SendEphermeral(args.UserId, args.ChannelId, "* `/mockinterview` - opens up an [interactive dialog] to post a mock interview request\n* `/mockinterview list` - get all your mock interview requests which you can edit or cancel")
 	}
 
 	return &model.CommandResponse{}, nil

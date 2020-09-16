@@ -41,7 +41,7 @@ func (p *Plugin) DeleteApplyButton() {
 			post.Props = model.StringInterface{
 				"attachments": []*model.SlackAttachment{
 					{
-						Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nLanguage: " + mockInterview.Language + "\nRating: " + mockInterview.Rating + "\nRequest Expired",
+						Text: "\nMock Interview Posted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nRequest Expired",
 					},
 				},
 			}

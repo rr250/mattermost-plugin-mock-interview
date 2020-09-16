@@ -15,6 +15,8 @@ func (p *Plugin) InitAPI() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/createmockinterview", p.CreateMockInterview).Methods("POST")
 	r.HandleFunc("/acceptrequest", p.AcceptRequest).Methods("POST")
+	r.HandleFunc("/cancelmockinterviewbyid", p.EditMockInterview).Methods("POST")
+	r.HandleFunc("/editmockinterviewbyid", p.CancelMockInterview).Methods("POST")
 	return r
 }
 
@@ -168,6 +170,88 @@ func (p *Plugin) AcceptRequest(w http.ResponseWriter, req *http.Request) {
 			p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
 			return
 		}
+	}
+}
+
+func (p *Plugin) EditMockInterview(w http.ResponseWriter, req *http.Request) {
+	// request := model.PostActionIntegrationRequestFromJson(req.Body)
+	// writePostActionIntegrationResponseOk(w, &model.PostActionIntegrationResponse{})
+	// mockInterviewID := request.Context["mockinterviewid"].(string)
+	// mockInterview, err1 := p.GetMockInterview(mockInterviewID)
+	// if err1 != nil {
+	// 	p.API.LogError("", err1.(string))
+	// 	p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("%s", err1.(string)))
+	// 	return
+	// }
+
+}
+
+func (p *Plugin) CancelMockInterview(w http.ResponseWriter, req *http.Request) {
+	request := model.PostActionIntegrationRequestFromJson(req.Body)
+	writePostActionIntegrationResponseOk(w, &model.PostActionIntegrationResponse{})
+	mockInterviewID := request.Context["mockinterviewid"].(string)
+	mockInterview, err1 := p.GetMockInterview(mockInterviewID)
+	if err1 != nil {
+		p.API.LogError("", err1.(string))
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("%s", err1.(string)))
+		return
+	}
+	if mockInterview.IsAccepted {
+		p.SendEphermeral(request.UserId, request.ChannelId, "Request already accepted")
+		return
+	}
+	if mockInterview.IsExpired {
+		p.SendEphermeral(request.UserId, request.ChannelId, "Request already expired")
+		return
+	}
+	mockInterview.IsCancelled = !mockInterview.IsCancelled
+	err2 := p.UpdateMockInterview(mockInterview)
+	if err2 != nil {
+		p.API.LogError("", err2)
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("%s", err2))
+		return
+	}
+	post, err := p.API.GetPost(mockInterview.PostID)
+	if err != nil {
+		p.API.LogError("Unable to get Post", err)
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
+		return
+	}
+	if mockInterview.IsCancelled {
+		post.Props = model.StringInterface{
+			"attachments": []*model.SlackAttachment{
+				{
+					Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nRequest Cancelled",
+				},
+			},
+		}
+	} else {
+		post.Props = model.StringInterface{
+			"attachments": []*model.SlackAttachment{
+				{
+					Text: "Mock Interview Request At : " + mockInterview.ScheduledAt.Format(time.RFC822) + "\nPosted By: " + mockInterview.CreatedBy + "\nInterview Type: " + mockInterview.InterviewType + "\nRating: " + mockInterview.Rating + "\nLanguage: " + mockInterview.Language,
+					Actions: []*model.PostAction{
+						{
+							Integration: &model.PostActionIntegration{
+								URL: fmt.Sprintf("/plugins/%s/acceptrequest", manifest.ID),
+								Context: model.StringInterface{
+									"action":          "acceptrequest",
+									"mockinterviewid": mockInterview.ID,
+								},
+							},
+							Type: model.POST_ACTION_TYPE_BUTTON,
+							Name: "Accept Request",
+						},
+					},
+				},
+			},
+		}
+	}
+	_, err = p.API.UpdatePost(post)
+	if err != nil {
+		p.API.LogError("Unable to update Post", err)
+		p.SendEphermeral(request.UserId, request.ChannelId, fmt.Sprintf("Some Error happened. Try Again %s", err))
+		return
 	}
 }
 
